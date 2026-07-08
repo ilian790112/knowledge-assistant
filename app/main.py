@@ -1,18 +1,20 @@
 from fastapi import FastAPI
 
+from app.api.documents import router as documents_router
+
 app = FastAPI(
     title="AI Knowledge Assistant",
-    description="Enterprise AI Knowledge Assistant API",
-    version="0.1.0",
+    version="0.1.0"
 )
+
+app.include_router(documents_router)
 
 
 @app.get("/")
 async def root():
     return {
         "application": "AI Knowledge Assistant",
-        "status": "running",
-        "version": "0.1.0"
+        "status": "running"
     }
 
 
