@@ -3,13 +3,21 @@ from fastapi import FastAPI
 app = FastAPI(
     title="AI Knowledge Assistant",
     description="Enterprise AI Knowledge Assistant API",
-    version="1.0.0",
+    version="0.1.0",
 )
 
 
 @app.get("/")
-def home():
+async def root():
     return {
+        "application": "AI Knowledge Assistant",
         "status": "running",
-        "message": "AI Knowledge Assistant API"
+        "version": "0.1.0"
+    }
+
+
+@app.get("/health")
+async def health():
+    return {
+        "status": "healthy"
     }
