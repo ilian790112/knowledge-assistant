@@ -1,16 +1,31 @@
+from fastapi import HTTPException, UploadFile
+
+from app.processors.document_processor import DocumentProcessor
+from app.schemas.processing import ProcessingResult
+
+
 class DocumentService:
 
-    def get_documents(self):
+    def __init__(self, processor: DocumentProcessor):
+        self.processor = processor
 
-        return [
-            {
-                "id": 1,
-                "filename": "employee_handbook.pdf",
-                "status": "uploaded"
-            },
-            {
-                "id": 2,
-                "filename": "vpn_guide.pdf",
-                "status": "uploaded"
-            }
-        ]
+    def upload_document(
+        self,
+        uploaded_file: UploadFile,
+    ) -> ProcessingResult:
+
+        self._validate_pdf(uploaded_file)
+
+        return self.processor.process(uploaded_file)
+
+    def get_documents(self):
+        return self.processor.repository.get_all()
+
+    @staticmethod
+    def _validate_pdf(uploaded_file: UploadFile):
+
+        if uploaded_file.content_type != "application/pdf":
+            raise HTTPException(
+                status_code=400,
+                detail="Only PDF files are allowed."
+            )
