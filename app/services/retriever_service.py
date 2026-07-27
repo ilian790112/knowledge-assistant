@@ -1,4 +1,4 @@
-from app.schemas.retrieved_chunk import RetrievedChunk
+from app.core.logger import logger
 from app.services.search_service import SearchService
 
 
@@ -16,13 +16,32 @@ class RetrieverService:
     def retrieve(
         self,
         question: str,
-        limit: int = 5,
-    ) -> list[RetrievedChunk]:
+        limit: int = 3,
+    ):
         """
         Retrieve the most relevant chunks for a question.
         """
 
-        return self.search_service.search(
+        chunks = self.search_service.search(
             question=question,
             limit=limit,
         )
+
+        logger.info("=" * 80)
+        logger.info("RETRIEVED CHUNKS")
+        logger.info("=" * 80)
+        logger.info("Question: %s", question)
+        logger.info("Chunks found: %d", len(chunks))
+
+        for index, chunk in enumerate(chunks, start=1):
+            logger.info(
+                "%d. %s (chunk=%d, score=%.4f)",
+                index,
+                chunk.filename,
+                chunk.chunk_index,
+                chunk.score,
+            )
+
+        logger.info("=" * 80)
+
+        return chunks

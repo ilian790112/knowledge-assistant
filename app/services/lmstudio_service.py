@@ -1,10 +1,9 @@
 from openai import OpenAI
 
 from app.core.config import settings
-from app.services.llm_service import LLMService
 
 
-class LMStudioService(LLMService):
+class LMStudioService:
     """
     Service for interacting with a local LM Studio server.
     """

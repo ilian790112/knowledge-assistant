@@ -9,20 +9,27 @@ from app.processors.document_processor import DocumentProcessor
 from app.processors.embedding_processor import EmbeddingProcessor
 from app.processors.indexing_processor import IndexingProcessor
 from app.processors.ingestion_processor import IngestionProcessor
-from app.repositories.document_chunk_repository import DocumentChunkRepository
-from app.repositories.document_repository import DocumentRepository
+from app.repositories.document_chunk_repository import (
+    DocumentChunkRepository,
+)
+from app.repositories.document_repository import (
+    DocumentRepository,
+)
+from app.repositories.search_repository import SearchRepository
 from app.services.chunk_service import ChunkService
 from app.services.document_service import DocumentService
 from app.services.embedding_service import EmbeddingService
+from app.services.llm_service import LLMService
 from app.services.pdf_service import PDFService
-from app.storage.local_storage import LocalStorage
-from app.repositories.search_repository import SearchRepository
-from app.services.search_service import SearchService
+from app.services.prompt_service import PromptService
+from app.services.query_rewrite_service import (
+    QueryRewriteService,
+)
+from app.services.rag_service import RAGService
 from app.services.reindex_service import ReindexService
 from app.services.retriever_service import RetrieverService
-from app.services.prompt_service import PromptService
-from app.services.rag_service import RAGService
-from app.services.lmstudio_service import LMStudioService
+from app.services.search_service import SearchService
+from app.storage.local_storage import LocalStorage
 
 
 def get_db() -> Generator[Session, None, None]:
@@ -72,17 +79,21 @@ def get_document_service(
         indexing_processor=indexing_processor,
     )
 
-    return DocumentService(processor=processor)
+    return DocumentService(
+    processor=processor,
+    )
 
 
 def get_search_service(
     db: Session = Depends(get_db),
 ) -> SearchService:
-    repository = SearchRepository(db)
+    """
+    Create and wire dependencies for search.
+    """
 
     return SearchService(
         embedding_service=EmbeddingService(),
-        repository=repository,
+        repository=SearchRepository(db),
     )
 
 
@@ -93,23 +104,21 @@ def get_reindex_service(
     Create and wire dependencies for embedding re-indexing.
     """
 
-    chunk_repository = DocumentChunkRepository(db)
-
     return ReindexService(
-        chunk_repository=chunk_repository,
+        chunk_repository=DocumentChunkRepository(db),
         embedding_service=EmbeddingService(),
     )
+
 
 def get_retriever_service(
     db: Session = Depends(get_db),
 ) -> RetrieverService:
-    search_service = SearchService(
-        embedding_service=EmbeddingService(),
-        repository=SearchRepository(db),
-    )
+    """
+    Create and wire dependencies for retrieval.
+    """
 
     return RetrieverService(
-        search_service=search_service,
+        search_service=get_search_service(db),
     )
 
 
@@ -120,17 +129,13 @@ def get_rag_service(
     Create and wire dependencies for the RAG pipeline.
     """
 
-    search_service = SearchService(
-        embedding_service=EmbeddingService(),
-        repository=SearchRepository(db),
-    )
-
-    retriever = RetrieverService(
-        search_service=search_service,
-    )
+    llm_service = LLMService()
 
     return RAGService(
-        retriever=retriever,
+        retriever=get_retriever_service(db),
         prompt_service=PromptService(),
-        llm_service=LMStudioService(),
+        llm_service=llm_service,
+        query_rewriter=QueryRewriteService(
+            llm_service=llm_service,
+        ),
     )

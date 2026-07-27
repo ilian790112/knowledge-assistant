@@ -11,16 +11,12 @@ router = APIRouter(
 )
 
 
-@router.post(
-    "/",
-    response_model=ChatResponse,
-)
+@router.post("/", response_model=ChatResponse)
 def chat(
     request: ChatRequest,
     rag_service: RAGService = Depends(get_rag_service),
 ) -> ChatResponse:
-    """
-    Answer a user's question using Retrieval-Augmented Generation.
-    """
-
-    return rag_service.answer(request.question)
+    return rag_service.answer(
+        question=request.question,
+        history=request.history,
+    )

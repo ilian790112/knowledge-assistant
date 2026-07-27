@@ -15,3 +15,7 @@ class Source(BaseModel):
     chunk_index: int
 
     score: float
+
+    preview: str
+
+    

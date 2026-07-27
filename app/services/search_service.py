@@ -30,6 +30,7 @@ class SearchService:
         )
 
         return self.repository.search(
-            query_embedding=query_embedding,
-            limit=limit,
-        )
+        query_embedding=query_embedding,
+        question=question,
+        limit=limit,
+    )

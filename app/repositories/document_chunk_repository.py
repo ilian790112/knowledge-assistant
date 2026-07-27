@@ -9,10 +9,16 @@ class DocumentChunkRepository:
     Handles all database operations for document chunks.
     """
 
-    def __init__(self, db: Session):
+    def __init__(
+        self,
+        db: Session,
+    ):
         self.db = db
 
-    def save(self, chunk: DocumentChunk) -> DocumentChunk:
+    def save(
+        self,
+        chunk: DocumentChunk,
+    ) -> DocumentChunk:
         """
         Save a single document chunk.
         """
@@ -55,7 +61,9 @@ class DocumentChunkRepository:
 
         return list(self.db.scalars(statement).all())
 
-    def get_chunks_without_embeddings(self) -> list[DocumentChunk]:
+    def get_chunks_without_embeddings(
+        self,
+    ) -> list[DocumentChunk]:
         """
         Return all document chunks that do not yet have an embedding.
         """
@@ -67,7 +75,9 @@ class DocumentChunkRepository:
 
         return list(self.db.scalars(statement).all())
 
-    def commit(self) -> None:
+    def commit(
+        self,
+    ) -> None:
         """
         Commit the current transaction.
         """
@@ -86,5 +96,23 @@ class DocumentChunkRepository:
 
         for chunk in chunks:
             self.db.delete(chunk)
+
+        self.db.commit()
+
+    def delete_by_document_id(
+        self,
+        document_id: int,
+    ) -> None:
+        """
+        Delete all chunks belonging to a document.
+        """
+
+        (
+            self.db.query(DocumentChunk)
+            .filter(
+                DocumentChunk.document_id == document_id,
+            )
+            .delete(synchronize_session=False)
+        )
 
         self.db.commit()

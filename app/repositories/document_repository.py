@@ -13,7 +13,10 @@ class DocumentRepository:
     def __init__(self, db: Session):
         self.db = db
 
-    def save(self, result: ProcessingResult) -> Document:
+    def save(
+        self,
+        result: ProcessingResult,
+    ) -> Document:
         """
         Save a processed document.
         """
@@ -42,7 +45,10 @@ class DocumentRepository:
 
         return list(self.db.scalars(statement).all())
 
-    def get_by_id(self, document_id: int) -> Document | None:
+    def get_by_id(
+        self,
+        document_id: int,
+    ) -> Document | None:
         """
         Return a document by ID.
         """
@@ -54,10 +60,13 @@ class DocumentRepository:
 
         return self.db.scalar(statement)
 
-    def delete(self, document: Document) -> None:
-        """
-        Delete a document.
-        """
+    def delete(
+    self,
+    document: Document,
+    ) -> None:
+      """
+      Delete a document.
+      """
 
-        self.db.delete(document)
-        self.db.commit()
+      self.db.delete(document)
+      self.db.commit()
