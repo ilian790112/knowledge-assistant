@@ -12,9 +12,7 @@ class Settings(BaseSettings):
     # ------------------------------------------------------------------
 
     app_name: str = "AI Knowledge Assistant"
-
     upload_folder: str = "uploads"
-
     max_upload_size: int = 10 * 1024 * 1024
 
     # ------------------------------------------------------------------
@@ -22,7 +20,7 @@ class Settings(BaseSettings):
     # ------------------------------------------------------------------
 
     database_url: str = Field(
-        default="postgresql://postgres:postgres@localhost:5432/knowledge_assistant",
+        ...,
         alias="DATABASE_URL",
     )
 
@@ -69,13 +67,9 @@ class Settings(BaseSettings):
     # ------------------------------------------------------------------
 
     retrieval_limit: int = 5
-
     semantic_candidate_limit: int = 10
-
     semantic_similarity_threshold: float = 0.70
-
     rrf_k: int = 60
-
     max_context_chars: int = 6000
 
     # ------------------------------------------------------------------
@@ -87,6 +81,7 @@ class Settings(BaseSettings):
         env_file_encoding="utf-8",
         case_sensitive=False,
         populate_by_name=True,
+        extra="ignore",
     )
 
 
