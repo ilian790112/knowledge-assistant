@@ -11,7 +11,10 @@ from sqlalchemy.orm import mapped_column
 from sqlalchemy.orm import relationship
 
 from app.core.database import Base
-from app.models.document import Document
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from app.models.document import Document
 
 
 class DocumentChunk(Base):
@@ -56,6 +59,7 @@ class DocumentChunk(Base):
         ),
     )
 
-    document: Mapped["Document"] = relationship(
-        back_populates="chunks",
+    document = relationship(
+    "Document",
+    back_populates="chunks",
     )
