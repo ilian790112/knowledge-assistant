@@ -11,6 +11,7 @@ from sqlalchemy.orm import mapped_column
 from sqlalchemy.orm import relationship
 
 from app.core.database import Base
+from app.models.document import Document
 
 
 class DocumentChunk(Base):
