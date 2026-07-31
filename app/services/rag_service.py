@@ -45,98 +45,134 @@ class RAGService:
         logger.info("=" * 80)
         logger.info("Original question: %s", question)
 
-        # Rewrite follow-up questions into standalone questions
-        rewritten_question = self.query_rewriter.rewrite(
-            question=question,
-            history=[
-                {
-                    "role": message.role,
-                    "content": message.content,
-                }
-                for message in history
-            ],
-        )
+        try:
+            # ------------------------------------------------------------------
+            # Rewrite
+            # ------------------------------------------------------------------
 
-        logger.info(
-            "Standalone question: %s",
-            rewritten_question,
-        )
+            logger.info("Rewriting question...")
 
-        chunks = self.retriever.retrieve(
-            rewritten_question,
-        )
-
-        retrieval_end = time.perf_counter()
-
-        logger.info(
-            "Retrieval completed in %.3f seconds",
-            retrieval_end - start,
-        )
-
-        logger.info(
-            "Retrieved %d chunks",
-            len(chunks),
-        )
-
-        MAX_CHARS_PER_CHUNK = 700
-
-        context = [
-        chunk.content[:MAX_CHARS_PER_CHUNK]
-        for chunk in chunks
-        ]
-
-        prompt = self.prompt_service.build_prompt(
-            question=question,
-            context=context,
-            history=(history or [])[-4:],
-        )
-
-        prompt_end = time.perf_counter()
-
-        logger.info(
-            "Prompt built in %.3f seconds",
-            prompt_end - retrieval_end,
-        )
-
-        logger.info("=" * 80)
-        logger.info("PROMPT SENT TO LLM")
-        logger.info("=" * 80)
-        logger.info(prompt)
-        logger.info("=" * 80)
-
-        answer = self.llm_service.generate(prompt)
-
-        llm_end = time.perf_counter()
-
-        logger.info(
-            "LLM completed in %.3f seconds",
-            llm_end - prompt_end,
-        )
-
-        logger.info("=" * 80)
-        logger.info("LLM RESPONSE")
-        logger.info("=" * 80)
-        logger.info(answer)
-        logger.info("=" * 80)
-
-        logger.info(
-            "Total request time: %.3f seconds",
-            llm_end - start,
-        )
-
-        sources = [
-            Source(
-                document_id=chunk.document_id,
-                filename=chunk.filename,
-                chunk_id=chunk.chunk_id,
-                chunk_index=chunk.chunk_index,
-                score=chunk.score,
-                preview=chunk.content[:250].strip(),
+            rewritten_question = self.query_rewriter.rewrite(
+                question=question,
+                history=[
+                    {
+                        "role": message.role,
+                        "content": message.content,
+                    }
+                    for message in history
+                ],
             )
-            for chunk in chunks
-        ]
 
-        return ChatResponse(
-            answer=answer,
-            sources=sources,
-        )
+            logger.info(
+                "Standalone question: %s",
+                rewritten_question,
+            )
+
+            # ------------------------------------------------------------------
+            # Retrieval
+            # ------------------------------------------------------------------
+
+            logger.info("Retrieving document chunks...")
+
+            chunks = self.retriever.retrieve(
+                rewritten_question,
+            )
+
+            retrieval_end = time.perf_counter()
+
+            logger.info(
+                "Retrieval completed in %.3f seconds",
+                retrieval_end - start,
+            )
+
+            logger.info(
+                "Retrieved %d chunks",
+                len(chunks),
+            )
+
+            # ------------------------------------------------------------------
+            # Prompt
+            # ------------------------------------------------------------------
+
+            logger.info("Building prompt...")
+
+            MAX_CHARS_PER_CHUNK = 700
+
+            context = [
+                chunk.content[:MAX_CHARS_PER_CHUNK]
+                for chunk in chunks
+            ]
+
+            prompt = self.prompt_service.build_prompt(
+                question=question,
+                context=context,
+                history=history[-4:],
+            )
+
+            prompt_end = time.perf_counter()
+
+            logger.info(
+                "Prompt built in %.3f seconds",
+                prompt_end - retrieval_end,
+            )
+
+            logger.info("=" * 80)
+            logger.info("PROMPT SENT TO LLM")
+            logger.info("=" * 80)
+            logger.info(prompt)
+            logger.info("=" * 80)
+
+            # ------------------------------------------------------------------
+            # LLM
+            # ------------------------------------------------------------------
+
+            logger.info("Generating answer...")
+
+            answer = self.llm_service.generate(
+                prompt,
+            )
+
+            llm_end = time.perf_counter()
+
+            logger.info(
+                "LLM completed in %.3f seconds",
+                llm_end - prompt_end,
+            )
+
+            logger.info("=" * 80)
+            logger.info("LLM RESPONSE")
+            logger.info("=" * 80)
+            logger.info(answer)
+            logger.info("=" * 80)
+
+            logger.info(
+                "Total request time: %.3f seconds",
+                llm_end - start,
+            )
+
+            # ------------------------------------------------------------------
+            # Sources
+            # ------------------------------------------------------------------
+
+            sources = [
+                Source(
+                    document_id=chunk.document_id,
+                    filename=chunk.filename,
+                    chunk_id=chunk.chunk_id,
+                    chunk_index=chunk.chunk_index,
+                    score=chunk.score,
+                    preview=chunk.content[:250].strip(),
+                )
+                for chunk in chunks
+            ]
+
+            return ChatResponse(
+                answer=answer,
+                sources=sources,
+            )
+
+        except Exception:
+            logger.exception("=" * 80)
+            logger.exception("RAG PIPELINE FAILED")
+            logger.exception("=" * 80)
+            raise
