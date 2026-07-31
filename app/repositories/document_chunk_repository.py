@@ -12,7 +12,7 @@ class DocumentChunkRepository:
     def __init__(
         self,
         db: Session,
-    ):
+    ) -> None:
         self.db = db
 
     def save(
@@ -34,7 +34,7 @@ class DocumentChunkRepository:
         chunks: list[DocumentChunk],
     ) -> list[DocumentChunk]:
         """
-        Save multiple chunks in one transaction.
+        Save multiple document chunks.
         """
 
         self.db.add_all(chunks)
@@ -44,6 +44,23 @@ class DocumentChunkRepository:
             self.db.refresh(chunk)
 
         return chunks
+
+    def get_all(
+        self,
+    ) -> list[DocumentChunk]:
+        """
+        Return all document chunks.
+        """
+
+        statement = (
+            select(DocumentChunk)
+            .order_by(
+                DocumentChunk.document_id,
+                DocumentChunk.chunk_index,
+            )
+        )
+
+        return list(self.db.scalars(statement).all())
 
     def get_by_document(
         self,
@@ -55,7 +72,9 @@ class DocumentChunkRepository:
 
         statement = (
             select(DocumentChunk)
-            .where(DocumentChunk.document_id == document_id)
+            .where(
+                DocumentChunk.document_id == document_id
+            )
             .order_by(DocumentChunk.chunk_index)
         )
 
@@ -65,7 +84,7 @@ class DocumentChunkRepository:
         self,
     ) -> list[DocumentChunk]:
         """
-        Return all document chunks that do not yet have an embedding.
+        Return chunks missing embeddings.
         """
 
         statement = (
@@ -79,27 +98,12 @@ class DocumentChunkRepository:
         self,
     ) -> None:
         """
-        Commit the current transaction.
+        Commit pending changes.
         """
 
         self.db.commit()
 
     def delete_by_document(
-        self,
-        document_id: int,
-    ) -> None:
-        """
-        Delete all chunks for a document.
-        """
-
-        chunks = self.get_by_document(document_id)
-
-        for chunk in chunks:
-            self.db.delete(chunk)
-
-        self.db.commit()
-
-    def delete_by_document_id(
         self,
         document_id: int,
     ) -> None:
@@ -110,7 +114,7 @@ class DocumentChunkRepository:
         (
             self.db.query(DocumentChunk)
             .filter(
-                DocumentChunk.document_id == document_id,
+                DocumentChunk.document_id == document_id
             )
             .delete(synchronize_session=False)
         )

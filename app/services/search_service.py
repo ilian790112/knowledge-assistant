@@ -1,3 +1,4 @@
+from app.core.logger import logger
 from app.repositories.search_repository import SearchRepository
 from app.schemas.retrieved_chunk import RetrievedChunk
 from app.services.embedding_service import EmbeddingService
@@ -25,12 +26,25 @@ class SearchService:
         Search for the most relevant document chunks.
         """
 
-        query_embedding = self.embedding_service.generate_embedding(
-            question
+        logger.info("Generating query embedding...")
+
+        query_embedding = (
+            self.embedding_service.generate_embedding(
+                question
+            )
         )
 
-        return self.repository.search(
-        query_embedding=query_embedding,
-        question=question,
-        limit=limit,
-    )
+        logger.info("Searching vector database...")
+
+        results = self.repository.search(
+            query_embedding=query_embedding,
+            question=question,
+            limit=limit,
+        )
+
+        logger.info(
+            "Retrieved %d chunks.",
+            len(results),
+        )
+
+        return results
