@@ -56,3 +56,14 @@ async def delete_document(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Document not found.",
         )
+
+@router.get("/")
+async def get_documents(
+    service: DocumentService = Depends(get_document_service),
+):
+    try:
+        return service.get_documents()
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
