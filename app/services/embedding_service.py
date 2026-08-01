@@ -1,30 +1,43 @@
 from sentence_transformers import SentenceTransformer
 
-from app.core.logger import logger
-
 
 class EmbeddingService:
     """
-    Generates sentence embeddings using a single shared model.
+    Service responsible for generating embeddings.
     """
 
-    def __init__(self) -> None:
-        logger.info("Loading SentenceTransformer model...")
+    _model = None
 
-        self.model = SentenceTransformer(
-            "all-MiniLM-L6-v2"
-        )
+    def __init__(self):
+        if EmbeddingService._model is None:
+            EmbeddingService._model = SentenceTransformer(
+                "all-MiniLM-L6-v2"
+            )
 
-        logger.info("SentenceTransformer loaded.")
+        self.model = EmbeddingService._model
 
     def generate_embedding(
         self,
         text: str,
     ) -> list[float]:
-        embedding = self.model.encode(text)
+        """
+        Generate a single embedding.
+        """
 
-        return embedding.tolist()
+        return self.model.encode(text).tolist()
 
+    def generate_embeddings(
+        self,
+        texts: list[str],
+    ) -> list[list[float]]:
+        """
+        Generate embeddings in batch.
+        """
 
-# Singleton instance used throughout the application.
-embedding_service = EmbeddingService()
+        embeddings = self.model.encode(
+            texts,
+            batch_size=32,
+            show_progress_bar=False,
+        )
+
+        return embeddings.tolist()

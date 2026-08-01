@@ -18,25 +18,23 @@ class EmbeddingProcessor:
         chunks: list[str],
     ) -> list[EmbeddingResult]:
         """
-        Generate embeddings in batches instead of one at a time.
+        Generate embeddings for all chunks in one batch.
         """
 
         if not chunks:
             return []
 
-        embeddings = self.embedding_service.generate_embeddings(chunks)
+        embeddings = self.embedding_service.generate_embeddings(
+            chunks
+        )
 
-        results: list[EmbeddingResult] = []
-
-        for index, (chunk, embedding) in enumerate(
-            zip(chunks, embeddings)
-        ):
-            results.append(
-                EmbeddingResult(
-                    chunk_index=index,
-                    content=chunk,
-                    embedding=embedding,
-                )
+        return [
+            EmbeddingResult(
+                chunk_index=index,
+                content=chunk,
+                embedding=embedding,
             )
-
-        return results
+            for index, (chunk, embedding) in enumerate(
+                zip(chunks, embeddings)
+            )
+        ]
