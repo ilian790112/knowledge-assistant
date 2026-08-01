@@ -24,17 +24,15 @@ class EmbeddingProcessor:
         if not chunks:
             return []
 
-        embeddings = self.embedding_service.generate_embeddings(
-            chunks
-        )
+        embeddings = self.embedding_service.generate_embeddings(chunks)
 
         return [
             EmbeddingResult(
-                chunk_index=index,
+                chunk_index=i,
                 content=chunk,
                 embedding=embedding,
             )
-            for index, (chunk, embedding) in enumerate(
-                zip(chunks, embeddings)
+            for i, (chunk, embedding) in enumerate(
+                zip(chunks, embeddings, strict=True)
             )
         ]
