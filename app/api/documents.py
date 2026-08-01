@@ -1,4 +1,5 @@
 from fastapi import APIRouter
+from fastapi import BackgroundTasks
 from fastapi import Depends
 from fastapi import File
 from fastapi import HTTPException
@@ -21,20 +22,34 @@ async def get_documents(
     """
     Return all uploaded documents.
     """
-
-    return service.get_documents()
+    try:
+        return service.get_documents()
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=str(exc),
+        )
 
 
 @router.post("/upload")
 async def upload_document(
+    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     service: DocumentService = Depends(get_document_service),
 ):
     """
-    Upload and process a PDF document.
+    Upload a PDF and process it in the background.
     """
 
-    return service.upload_document(file)
+    background_tasks.add_task(
+        service.upload_document,
+        file,
+    )
+
+    return {
+        "message": "Upload started.",
+        "status": "processing",
+    }
 
 
 @router.delete(
@@ -56,14 +71,3 @@ async def delete_document(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Document not found.",
         )
-
-@router.get("/")
-async def get_documents(
-    service: DocumentService = Depends(get_document_service),
-):
-    try:
-        return service.get_documents()
-    except Exception as e:
-        import traceback
-        traceback.print_exc()
-        raise HTTPException(status_code=500, detail=str(e))

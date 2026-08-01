@@ -12,7 +12,7 @@ class DocumentChunkRepository:
     def __init__(
         self,
         db: Session,
-    ) -> None:
+    ):
         self.db = db
 
     def save(
@@ -20,7 +20,7 @@ class DocumentChunkRepository:
         chunk: DocumentChunk,
     ) -> DocumentChunk:
         """
-        Save a single document chunk.
+        Save a single chunk.
         """
 
         self.db.add(chunk)
@@ -32,35 +32,19 @@ class DocumentChunkRepository:
     def save_many(
         self,
         chunks: list[DocumentChunk],
+        batch_size: int = 100,
     ) -> list[DocumentChunk]:
         """
-        Save multiple document chunks.
+        Save chunks in batches instead of a huge transaction.
         """
 
-        self.db.add_all(chunks)
-        self.db.commit()
+        for i in range(0, len(chunks), batch_size):
+            batch = chunks[i : i + batch_size]
 
-        for chunk in chunks:
-            self.db.refresh(chunk)
+            self.db.add_all(batch)
+            self.db.commit()
 
         return chunks
-
-    def get_all(
-        self,
-    ) -> list[DocumentChunk]:
-        """
-        Return all document chunks.
-        """
-
-        statement = (
-            select(DocumentChunk)
-            .order_by(
-                DocumentChunk.document_id,
-                DocumentChunk.chunk_index,
-            )
-        )
-
-        return list(self.db.scalars(statement).all())
 
     def get_by_document(
         self,
@@ -75,10 +59,14 @@ class DocumentChunkRepository:
             .where(
                 DocumentChunk.document_id == document_id
             )
-            .order_by(DocumentChunk.chunk_index)
+            .order_by(
+                DocumentChunk.chunk_index
+            )
         )
 
-        return list(self.db.scalars(statement).all())
+        return list(
+            self.db.scalars(statement).all()
+        )
 
     def get_chunks_without_embeddings(
         self,
@@ -89,18 +77,18 @@ class DocumentChunkRepository:
 
         statement = (
             select(DocumentChunk)
-            .where(DocumentChunk.embedding.is_(None))
+            .where(
+                DocumentChunk.embedding.is_(None)
+            )
         )
 
-        return list(self.db.scalars(statement).all())
+        return list(
+            self.db.scalars(statement).all()
+        )
 
     def commit(
         self,
     ) -> None:
-        """
-        Commit pending changes.
-        """
-
         self.db.commit()
 
     def delete_by_document(
@@ -108,7 +96,22 @@ class DocumentChunkRepository:
         document_id: int,
     ) -> None:
         """
-        Delete all chunks belonging to a document.
+        Delete all chunks for a document.
+        """
+
+        chunks = self.get_by_document(document_id)
+
+        for chunk in chunks:
+            self.db.delete(chunk)
+
+        self.db.commit()
+
+    def delete_by_document_id(
+        self,
+        document_id: int,
+    ) -> None:
+        """
+        Delete all chunks for a document.
         """
 
         (
@@ -116,7 +119,9 @@ class DocumentChunkRepository:
             .filter(
                 DocumentChunk.document_id == document_id
             )
-            .delete(synchronize_session=False)
+            .delete(
+                synchronize_session=False
+            )
         )
 
         self.db.commit()
