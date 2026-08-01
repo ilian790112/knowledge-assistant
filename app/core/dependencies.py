@@ -18,15 +18,11 @@ from app.repositories.document_repository import (
 from app.repositories.search_repository import SearchRepository
 from app.services.chunk_service import ChunkService
 from app.services.document_service import DocumentService
-from app.services.embedding_service import (
-    embedding_service,
-)
+from app.services.embedding_service import embedding_service
 from app.services.llm_service import LLMService
 from app.services.pdf_service import PDFService
 from app.services.prompt_service import PromptService
-from app.services.query_rewrite_service import (
-    QueryRewriteService,
-)
+from app.services.query_rewrite_service import QueryRewriteService
 from app.services.rag_service import RAGService
 from app.services.reindex_service import ReindexService
 from app.services.retriever_service import RetrieverService
@@ -34,7 +30,7 @@ from app.services.search_service import SearchService
 from app.storage.local_storage import LocalStorage
 
 
-# Heavy services are created once.
+# Singleton services (created once when the application starts)
 llm_service = LLMService()
 prompt_service = PromptService()
 query_rewrite_service = QueryRewriteService(

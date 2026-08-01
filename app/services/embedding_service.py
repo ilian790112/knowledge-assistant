@@ -3,12 +3,13 @@ from sentence_transformers import SentenceTransformer
 
 class EmbeddingService:
     """
-    Service responsible for generating embeddings.
+    Service responsible for generating embeddings using a single
+    shared SentenceTransformer model.
     """
 
-    _model = None
+    _model: SentenceTransformer | None = None
 
-    def __init__(self):
+    def __init__(self) -> None:
         if EmbeddingService._model is None:
             EmbeddingService._model = SentenceTransformer(
                 "all-MiniLM-L6-v2"
@@ -21,18 +22,26 @@ class EmbeddingService:
         text: str,
     ) -> list[float]:
         """
-        Generate a single embedding.
+        Generate an embedding for a single piece of text.
         """
 
-        return self.model.encode(text).tolist()
+        embedding = self.model.encode(
+            text,
+            show_progress_bar=False,
+        )
+
+        return embedding.tolist()
 
     def generate_embeddings(
         self,
         texts: list[str],
     ) -> list[list[float]]:
         """
-        Generate embeddings in batch.
+        Generate embeddings for multiple texts in one batch.
         """
+
+        if not texts:
+            return []
 
         embeddings = self.model.encode(
             texts,
@@ -41,3 +50,7 @@ class EmbeddingService:
         )
 
         return embeddings.tolist()
+
+
+# Singleton instance shared across the entire application.
+embedding_service = EmbeddingService()
