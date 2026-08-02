@@ -1,3 +1,6 @@
+from fastapi import UploadFile
+
+from app.core.logger import logger
 from app.processors.chunk_processor import ChunkProcessor
 from app.processors.embedding_processor import EmbeddingProcessor
 from app.processors.indexing_processor import IndexingProcessor
@@ -10,7 +13,7 @@ class DocumentProcessor:
     Coordinates the complete document processing pipeline.
 
     Pipeline:
-        Temporary File
+        Save File
             ↓
         Extract Text
             ↓
@@ -43,19 +46,38 @@ class DocumentProcessor:
         Execute the complete AI document processing pipeline.
         """
 
-        # Step 1 - Read the temporary file and extract text
+        logger.info("Step 1: Starting ingestion")
+
         saved_path, cleaned_text = self.ingestion_processor.ingest(
             temp_path=temp_path,
             filename=filename,
         )
 
-        # Step 2 - Split text into chunks
+        logger.info(
+            "Step 1 complete: %d characters extracted",
+            len(cleaned_text),
+        )
+
+        logger.info("Step 2: Chunking document")
+
         chunks = self.chunk_processor.process(cleaned_text)
 
-        # Step 3 - Generate embeddings
+        logger.info(
+            "Step 2 complete: %d chunks created",
+            len(chunks),
+        )
+
+        logger.info("Step 3: Generating embeddings")
+
         embedding_results = self.embedding_processor.process(chunks)
 
-        # Step 4 - Build processing metadata
+        logger.info(
+            "Step 3 complete: %d embeddings generated",
+            len(embedding_results),
+        )
+
+        logger.info("Step 4: Building processing result")
+
         result = ProcessingResult(
             filename=filename,
             content_type=content_type,
@@ -80,8 +102,18 @@ class DocumentProcessor:
             ),
         )
 
-        # Step 5 - Persist document, chunks, and embeddings
-        return self.indexing_processor.process(
+        logger.info("Step 5: Saving document and chunks")
+
+        document = self.indexing_processor.process(
             result=result,
             embedding_results=embedding_results,
         )
+
+        logger.info(
+            "Step 5 complete: Document saved with id=%s",
+            document.id,
+        )
+
+        logger.info("Document processing completed successfully")
+
+        return document
