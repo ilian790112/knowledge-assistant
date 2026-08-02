@@ -1,5 +1,4 @@
 from pathlib import Path
-import shutil
 
 from app.services.pdf_service import PDFService
 from app.storage.local_storage import LocalStorage
@@ -25,27 +24,18 @@ class IngestionProcessor:
         filename: str,
     ) -> tuple[Path, str]:
         """
-        Move the temporary uploaded file into permanent storage
-        and return the cleaned text.
+        Save the file and return cleaned text.
         """
 
-        destination = self.storage.storage_path / filename
-        destination.parent.mkdir(
-            parents=True,
-            exist_ok=True,
-        )
-
-        shutil.move(
-            temp_path,
-            destination,
+        saved_path = self.storage.save_file(
+            temp_path=temp_path,
+            filename=filename,
         )
 
         extracted_text = self.pdf_service.extract_text(
-            str(destination)
+            str(saved_path)
         )
 
-        cleaned_text = clean_text(
-            extracted_text
-        )
+        cleaned_text = clean_text(extracted_text)
 
-        return destination, cleaned_text
+        return saved_path, cleaned_text
