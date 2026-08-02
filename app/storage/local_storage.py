@@ -5,14 +5,29 @@ UPLOAD_DIR = Path("uploads")
 
 
 class LocalStorage:
+    """
+    Stores uploaded files on disk.
+    """
 
-    def save_file(self, uploaded_file):
+    def save_file(
+        self,
+        temp_path: str,
+        filename: str,
+    ) -> Path:
+        """
+        Move a temporary uploaded file into permanent storage.
+        """
 
-        UPLOAD_DIR.mkdir(exist_ok=True)
+        UPLOAD_DIR.mkdir(
+            parents=True,
+            exist_ok=True,
+        )
 
-        destination = UPLOAD_DIR / uploaded_file.filename
+        destination = UPLOAD_DIR / filename
 
-        with destination.open("wb") as buffer:
-            shutil.copyfileobj(uploaded_file.file, buffer)
+        shutil.move(
+            temp_path,
+            destination,
+        )
 
         return destination

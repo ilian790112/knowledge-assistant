@@ -1,5 +1,3 @@
-from fastapi import UploadFile
-
 from app.processors.chunk_processor import ChunkProcessor
 from app.processors.embedding_processor import EmbeddingProcessor
 from app.processors.indexing_processor import IndexingProcessor
@@ -12,9 +10,7 @@ class DocumentProcessor:
     Coordinates the complete document processing pipeline.
 
     Pipeline:
-        Upload File
-            ↓
-        Save File
+        Temporary File
             ↓
         Extract Text
             ↓
@@ -39,15 +35,18 @@ class DocumentProcessor:
 
     def process(
         self,
-        uploaded_file: UploadFile,
+        temp_path: str,
+        filename: str,
+        content_type: str,
     ):
         """
         Execute the complete AI document processing pipeline.
         """
 
-        # Step 1 - Save file & extract text
+        # Step 1 - Read the temporary file and extract text
         saved_path, cleaned_text = self.ingestion_processor.ingest(
-            uploaded_file
+            temp_path=temp_path,
+            filename=filename,
         )
 
         # Step 2 - Split text into chunks
@@ -58,8 +57,8 @@ class DocumentProcessor:
 
         # Step 4 - Build processing metadata
         result = ProcessingResult(
-            filename=uploaded_file.filename,
-            content_type=uploaded_file.content_type,
+            filename=filename,
+            content_type=content_type,
             path=str(saved_path),
             status="processed",
             characters=len(cleaned_text),

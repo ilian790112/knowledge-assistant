@@ -1,9 +1,15 @@
-from fastapi import APIRouter
-from fastapi import Depends
-from fastapi import File
-from fastapi import HTTPException
-from fastapi import UploadFile
-from fastapi import status
+from tempfile import NamedTemporaryFile
+from pathlib import Path
+
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Depends,
+    File,
+    HTTPException,
+    UploadFile,
+    status,
+)
 
 from app.core.dependencies import get_document_service
 from app.services.document_service import DocumentService
@@ -32,22 +38,31 @@ async def get_documents(
 
 @router.post("/upload")
 async def upload_document(
+    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     service: DocumentService = Depends(get_document_service),
 ):
     """
-    Upload and process a PDF.
+    Save the uploaded file first, then process it in the background.
     """
 
-    result = service.upload_document(file)
+    suffix = Path(file.filename).suffix
 
-    if result is None:
-        raise HTTPException(
-            status_code=500,
-            detail="Failed to process document.",
-        )
+    with NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+        tmp.write(await file.read())
+        temp_path = tmp.name
 
-    return result
+    background_tasks.add_task(
+        service.upload_document,
+        temp_path,
+        file.filename,
+        file.content_type,
+    )
+
+    return {
+        "message": "Upload started.",
+        "status": "processing",
+    }
 
 
 @router.delete(

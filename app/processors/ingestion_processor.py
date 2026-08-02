@@ -1,6 +1,5 @@
 from pathlib import Path
-
-from fastapi import UploadFile
+import shutil
 
 from app.services.pdf_service import PDFService
 from app.storage.local_storage import LocalStorage
@@ -22,16 +21,31 @@ class IngestionProcessor:
 
     def ingest(
         self,
-        uploaded_file: UploadFile,
+        temp_path: str,
+        filename: str,
     ) -> tuple[Path, str]:
         """
-        Save the file and return cleaned text.
+        Move the temporary uploaded file into permanent storage
+        and return the cleaned text.
         """
 
-        saved_path = self.storage.save_file(uploaded_file)
+        destination = self.storage.storage_path / filename
+        destination.parent.mkdir(
+            parents=True,
+            exist_ok=True,
+        )
 
-        extracted_text = self.pdf_service.extract_text(str(saved_path))
+        shutil.move(
+            temp_path,
+            destination,
+        )
 
-        cleaned_text = clean_text(extracted_text)
+        extracted_text = self.pdf_service.extract_text(
+            str(destination)
+        )
 
-        return saved_path, cleaned_text
+        cleaned_text = clean_text(
+            extracted_text
+        )
+
+        return destination, cleaned_text

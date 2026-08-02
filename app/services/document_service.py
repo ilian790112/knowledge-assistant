@@ -1,7 +1,6 @@
 from pathlib import Path
 
 from fastapi import HTTPException
-from fastapi import UploadFile
 
 from app.core.logger import logger
 from app.processors.document_processor import DocumentProcessor
@@ -21,27 +20,33 @@ class DocumentService:
 
     def upload_document(
         self,
-        uploaded_file: UploadFile,
+        temp_path: str,
+        filename: str,
+        content_type: str,
     ) -> ProcessingResult | None:
         """
-        Upload and process a PDF.
+        Process a previously uploaded PDF.
 
         This method is executed as a FastAPI background task.
         """
 
         try:
-            self._validate_pdf(uploaded_file)
+            self._validate_pdf(content_type)
 
             logger.info(
                 "Started processing document: %s",
-                uploaded_file.filename,
+                filename,
             )
 
-            result = self.processor.process(uploaded_file)
+            result = self.processor.process(
+                temp_path=temp_path,
+                filename=filename,
+                content_type=content_type,
+            )
 
             logger.info(
                 "Finished processing document: %s",
-                uploaded_file.filename,
+                filename,
             )
 
             return result
@@ -49,9 +54,15 @@ class DocumentService:
         except Exception:
             logger.exception(
                 "Failed to process document: %s",
-                uploaded_file.filename,
+                filename,
             )
             return None
+
+        finally:
+            temp_file = Path(temp_path)
+
+            if temp_file.exists():
+                temp_file.unlink()
 
     def get_documents(self):
         """
@@ -100,13 +111,13 @@ class DocumentService:
 
     @staticmethod
     def _validate_pdf(
-        uploaded_file: UploadFile,
+        content_type: str,
     ) -> None:
         """
         Validate uploaded file.
         """
 
-        if uploaded_file.content_type != "application/pdf":
+        if content_type != "application/pdf":
             raise HTTPException(
                 status_code=400,
                 detail="Only PDF files are allowed.",
