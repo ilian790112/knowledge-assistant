@@ -1,5 +1,4 @@
 from fastapi import APIRouter
-from fastapi import BackgroundTasks
 from fastapi import Depends
 from fastapi import File
 from fastapi import HTTPException
@@ -33,23 +32,22 @@ async def get_documents(
 
 @router.post("/upload")
 async def upload_document(
-    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     service: DocumentService = Depends(get_document_service),
 ):
     """
-    Upload a PDF and process it in the background.
+    Upload and process a PDF.
     """
 
-    background_tasks.add_task(
-        service.upload_document,
-        file,
-    )
+    result = service.upload_document(file)
 
-    return {
-        "message": "Upload started.",
-        "status": "processing",
-    }
+    if result is None:
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to process document.",
+        )
+
+    return result
 
 
 @router.delete(
