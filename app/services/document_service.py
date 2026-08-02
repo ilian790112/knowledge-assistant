@@ -23,21 +23,21 @@ class DocumentService:
         temp_path: str,
         filename: str,
         content_type: str,
-    ) -> ProcessingResult | None:
+    ) -> ProcessingResult:
         """
         Process a previously uploaded PDF.
 
         This method is executed as a FastAPI background task.
         """
 
+        self._validate_pdf(content_type)
+
+        logger.info(
+            "Started processing document: %s",
+            filename,
+        )
+
         try:
-            self._validate_pdf(content_type)
-
-            logger.info(
-                "Started processing document: %s",
-                filename,
-            )
-
             result = self.processor.process(
                 temp_path=temp_path,
                 filename=filename,
@@ -56,13 +56,20 @@ class DocumentService:
                 "Failed to process document: %s",
                 filename,
             )
-            return None
+            raise
 
         finally:
             temp_file = Path(temp_path)
 
-            if temp_file.exists():
-                temp_file.unlink()
+            try:
+                if temp_file.exists():
+                    temp_file.unlink()
+            except Exception:
+                logger.warning(
+                    "Could not delete temporary file: %s",
+                    temp_path,
+                    exc_info=True,
+                )
 
     def get_documents(self):
         """
