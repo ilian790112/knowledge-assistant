@@ -1,3 +1,5 @@
+from collections.abc import Iterator
+
 from app.schemas.embedding_result import EmbeddingResult
 from app.services.embedding_service import EmbeddingService
 
@@ -16,23 +18,18 @@ class EmbeddingProcessor:
     def process(
         self,
         chunks: list[str],
-    ) -> list[EmbeddingResult]:
+    ) -> Iterator[EmbeddingResult]:
         """
-        Generate embeddings for all chunks in one batch.
+        Generate embeddings lazily, one chunk at a time.
         """
 
-        if not chunks:
-            return []
+        for index, chunk in enumerate(chunks):
+            embedding = self.embedding_service.generate_embedding(
+                chunk,
+            )
 
-        embeddings = self.embedding_service.generate_embeddings(chunks)
-
-        return [
-            EmbeddingResult(
-                chunk_index=i,
+            yield EmbeddingResult(
+                chunk_index=index,
                 content=chunk,
                 embedding=embedding,
             )
-            for i, (chunk, embedding) in enumerate(
-                zip(chunks, embeddings, strict=True)
-            )
-        ]

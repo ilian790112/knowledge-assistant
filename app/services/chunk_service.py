@@ -1,3 +1,6 @@
+from collections.abc import Iterator
+
+
 class ChunkService:
     """
     Splits text into overlapping chunks for semantic retrieval.
@@ -14,18 +17,18 @@ class ChunkService:
     def chunk_text(
         self,
         text: str,
-    ) -> list[str]:
-        if not text:
-            return []
+    ) -> Iterator[str]:
+        """
+        Yield chunks one at a time instead of returning a list.
+        """
 
-        chunks = []
+        if not text:
+            return
 
         step = self.chunk_size - self.overlap
 
         for start in range(0, len(text), step):
-            chunk = text[start:start + self.chunk_size]
+            chunk = text[start : start + self.chunk_size]
 
             if chunk.strip():
-                chunks.append(chunk)
-
-        return chunks
+                yield chunk

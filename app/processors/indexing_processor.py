@@ -1,3 +1,5 @@
+from collections.abc import Iterator
+
 from app.models.document_chunk import DocumentChunk
 from app.repositories.document_chunk_repository import (
     DocumentChunkRepository,
@@ -25,24 +27,22 @@ class IndexingProcessor:
     def process(
         self,
         result: ProcessingResult,
-        embedding_results: list[EmbeddingResult],
+        embedding_results: Iterator[EmbeddingResult],
     ):
         """
-        Save document and all chunks.
+        Save document and chunks as they are generated.
         """
 
         document = self.document_repository.save(result)
 
-        chunks = [
-            DocumentChunk(
-                document_id=document.id,
-                chunk_index=item.chunk_index,
-                content=item.content,
-                embedding=item.embedding,
+        for item in embedding_results:
+            self.chunk_repository.save(
+                DocumentChunk(
+                    document_id=document.id,
+                    chunk_index=item.chunk_index,
+                    content=item.content,
+                    embedding=item.embedding,
+                )
             )
-            for item in embedding_results
-        ]
-
-        self.chunk_repository.save_many(chunks)
 
         return document

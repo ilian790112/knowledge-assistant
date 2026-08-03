@@ -1,5 +1,3 @@
-from fastapi import UploadFile
-
 from app.core.logger import logger
 from app.processors.chunk_processor import ChunkProcessor
 from app.processors.embedding_processor import EmbeddingProcessor
@@ -11,17 +9,6 @@ from app.schemas.processing import ProcessingResult
 class DocumentProcessor:
     """
     Coordinates the complete document processing pipeline.
-
-    Pipeline:
-        Save File
-            ↓
-        Extract Text
-            ↓
-        Chunk Text
-            ↓
-        Generate Embeddings
-            ↓
-        Store in Database
     """
 
     def __init__(
@@ -42,10 +29,6 @@ class DocumentProcessor:
         filename: str,
         content_type: str,
     ):
-        """
-        Execute the complete AI document processing pipeline.
-        """
-
         logger.info("Step 1: Starting ingestion")
 
         saved_path, cleaned_text = self.ingestion_processor.ingest(
@@ -67,17 +50,6 @@ class DocumentProcessor:
             len(chunks),
         )
 
-        logger.info("Step 3: Generating embeddings")
-
-        embedding_results = self.embedding_processor.process(chunks)
-
-        logger.info(
-            "Step 3 complete: %d embeddings generated",
-            len(embedding_results),
-        )
-
-        logger.info("Step 4: Building processing result")
-
         result = ProcessingResult(
             filename=filename,
             content_type=content_type,
@@ -85,35 +57,21 @@ class DocumentProcessor:
             status="processed",
             characters=len(cleaned_text),
             chunks=len(chunks),
-            embedding_dimensions=(
-                len(embedding_results[0].embedding)
-                if embedding_results
-                else 0
-            ),
-            embedding_preview=(
-                embedding_results[0].embedding[:10]
-                if embedding_results
-                else []
-            ),
-            preview=(
-                embedding_results[0].content[:500]
-                if embedding_results
-                else ""
-            ),
+            embedding_dimensions=384,
+            embedding_preview=[],
+            preview=chunks[0][:500] if chunks else "",
         )
 
-        logger.info("Step 5: Saving document and chunks")
+        logger.info("Step 3: Generating embeddings and saving chunks")
 
         document = self.indexing_processor.process(
             result=result,
-            embedding_results=embedding_results,
+            embedding_results=self.embedding_processor.process(chunks),
         )
 
         logger.info(
-            "Step 5 complete: Document saved with id=%s",
+            "Document saved with id=%s",
             document.id,
         )
-
-        logger.info("Document processing completed successfully")
 
         return document
