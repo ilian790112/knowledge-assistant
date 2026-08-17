@@ -91,6 +91,7 @@ knowledge-assistant/
 ├── frontend/            # React + TypeScript client
 ├── docker-compose.yml   # local PostgreSQL infrastructure
 ├── Procfile             # production web process
+├── tests/               # lightweight backend tests
 └── requirements.txt     # Python dependencies
 ```
 
@@ -100,15 +101,19 @@ The ingestion pipeline was deliberately designed around bounded memory usage. La
 
 The upload endpoint also streams incoming files rather than calling `read()` on the entire request body. Database SQL echo is disabled by default and can be enabled explicitly with `SQL_ECHO=true` when debugging.
 
+Uploaded filenames are sanitized and prefixed with a UUID, preventing path traversal and accidental overwrites.
+
 ## Configuration
 
-Create a `.env` file from the following variables:
+Copy `.env.example` to `.env` and provide your database and LLM credentials. Important production variables include:
 
 ```env
-DATABASE_URL=postgresql+psycopg2://user:password@localhost:5432/knowledge_assistant
+DATABASE_URL=postgresql+psycopg2://user:password@host:5432/knowledge_assistant
 OPENROUTER_API_KEY=your_api_key
 LLM_PROVIDER=openrouter
 OPENROUTER_MODEL=deepseek/deepseek-chat-v3-0324
+APP_URL=https://your-api.example.com
+CORS_ORIGINS=https://your-frontend.example.com
 MAX_UPLOAD_SIZE=10485760
 SQL_ECHO=false
 ```
@@ -131,9 +136,9 @@ The frontend and backend can also be run independently when developing locally.
 | `POST` | `/documents/upload` | Upload and process a PDF asynchronously |
 | `DELETE` | `/documents/{document_id}` | Delete a document and its chunks |
 | `POST` | `/chat/` | Ask a question against the knowledge base |
-| `POST` | `/search/` | Search indexed document content |
-| `POST` | `/reindex/` | Rebuild missing embeddings |
-| `GET` | `/retriever/` | Inspect retrieval behavior |
+| `POST` | `/search/` | Run hybrid document search |
+| `POST` | `/retrieve/` | Inspect retrieval results |
+| `POST` | `/reindex/embeddings` | Rebuild missing embeddings |
 
 FastAPI also exposes interactive OpenAPI documentation through its standard docs endpoints.
 
