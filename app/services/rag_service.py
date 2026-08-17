@@ -1,5 +1,6 @@
 import time
 
+from app.core.config import settings
 from app.core.logger import logger
 from app.schemas.chat_message import ChatMessage
 from app.schemas.chat_response import ChatResponse
@@ -11,9 +12,7 @@ from app.services.retriever_service import RetrieverService
 
 
 class RAGService:
-    """
-    Coordinates the Retrieval-Augmented Generation pipeline.
-    """
+    """Coordinates query rewriting, retrieval, prompting, and generation."""
 
     def __init__(
         self,
@@ -32,147 +31,84 @@ class RAGService:
         question: str,
         history: list[ChatMessage] | None = None,
     ) -> ChatResponse:
-        """
-        Generate an answer using Retrieval-Augmented Generation.
-        """
+        """Generate an answer grounded in retrieved document context."""
 
         history = history or []
-
         start = time.perf_counter()
 
-        logger.info("=" * 80)
-        logger.info("NEW RAG REQUEST")
-        logger.info("=" * 80)
-        logger.info("Original question: %s", question)
+        logger.info("Starting RAG request")
 
-        try:
-            # ------------------------------------------------------------------
-            # Rewrite
-            # ------------------------------------------------------------------
+        rewritten_question = self.query_rewriter.rewrite(
+            question=question,
+            history=[
+                {
+                    "role": message.role,
+                    "content": message.content,
+                }
+                for message in history
+            ],
+        )
 
-            logger.info("Rewriting question...")
+        logger.info("Retrieving context for rewritten question")
+        chunks = self.retriever.retrieve(rewritten_question)
 
-            rewritten_question = self.query_rewriter.rewrite(
-                question=question,
-                history=[
-                    {
-                        "role": message.role,
-                        "content": message.content,
-                    }
-                    for message in history
-                ],
-            )
-
+        if not chunks:
             logger.info(
-                "Standalone question: %s",
-                rewritten_question,
+                "No relevant document context found; returning grounded fallback"
             )
-
-            # ------------------------------------------------------------------
-            # Retrieval
-            # ------------------------------------------------------------------
-
-            logger.info("Retrieving document chunks...")
-
-            chunks = self.retriever.retrieve(
-                rewritten_question,
-            )
-
-            retrieval_end = time.perf_counter()
-
-            logger.info(
-                "Retrieval completed in %.3f seconds",
-                retrieval_end - start,
-            )
-
-            logger.info(
-                "Retrieved %d chunks",
-                len(chunks),
-            )
-
-            # ------------------------------------------------------------------
-            # Prompt
-            # ------------------------------------------------------------------
-
-            logger.info("Building prompt...")
-
-            MAX_CHARS_PER_CHUNK = 700
-
-            context = [
-                chunk.content[:MAX_CHARS_PER_CHUNK]
-                for chunk in chunks
-            ]
-
-            prompt = self.prompt_service.build_prompt(
-                question=question,
-                context=context,
-                history=history[-4:],
-            )
-
-            prompt_end = time.perf_counter()
-
-            logger.info(
-                "Prompt built in %.3f seconds",
-                prompt_end - retrieval_end,
-            )
-
-            logger.info("=" * 80)
-            logger.info("PROMPT SENT TO LLM")
-            logger.info("=" * 80)
-            logger.info(prompt)
-            logger.info("=" * 80)
-
-            # ------------------------------------------------------------------
-            # LLM
-            # ------------------------------------------------------------------
-
-            logger.info("Generating answer...")
-
-            answer = self.llm_service.generate(
-                prompt,
-            )
-
-            llm_end = time.perf_counter()
-
-            logger.info(
-                "LLM completed in %.3f seconds",
-                llm_end - prompt_end,
-            )
-
-            logger.info("=" * 80)
-            logger.info("LLM RESPONSE")
-            logger.info("=" * 80)
-            logger.info(answer)
-            logger.info("=" * 80)
-
-            logger.info(
-                "Total request time: %.3f seconds",
-                llm_end - start,
-            )
-
-            # ------------------------------------------------------------------
-            # Sources
-            # ------------------------------------------------------------------
-
-            sources = [
-                Source(
-                    document_id=chunk.document_id,
-                    filename=chunk.filename,
-                    chunk_id=chunk.chunk_id,
-                    chunk_index=chunk.chunk_index,
-                    score=chunk.score,
-                    preview=chunk.content[:250].strip(),
-                )
-                for chunk in chunks
-            ]
-
             return ChatResponse(
-                answer=answer,
-                sources=sources,
+                answer="I don't know.",
+                sources=[],
             )
 
-        except Exception:
-            logger.exception("=" * 80)
-            logger.exception("RAG PIPELINE FAILED")
-            logger.exception("=" * 80)
-            raise
+        context: list[str] = []
+        context_chars = 0
+
+        for chunk in chunks:
+            remaining = settings.max_context_chars - context_chars
+
+            if remaining <= 0:
+                break
+
+            content = chunk.content[:remaining]
+            context.append(
+                f"[Source: {chunk.filename}, chunk {chunk.chunk_index}]\n"
+                f"{content}"
+            )
+            context_chars += len(content)
+
+        prompt = self.prompt_service.build_prompt(
+            question=question,
+            context=context,
+            history=history[-4:],
+        )
+
+        logger.info(
+            "Context assembled from %d chunks (%d chars)",
+            len(context),
+            context_chars,
+        )
+
+        answer = self.llm_service.generate(prompt)
+
+        sources = [
+            Source(
+                document_id=chunk.document_id,
+                filename=chunk.filename,
+                chunk_id=chunk.chunk_id,
+                chunk_index=chunk.chunk_index,
+                score=chunk.score,
+                preview=chunk.content[:250].strip(),
+            )
+            for chunk in chunks
+        ]
+
+        logger.info(
+            "RAG request completed in %.3f seconds",
+            time.perf_counter() - start,
+        )
+
+        return ChatResponse(
+            answer=answer,
+            sources=sources,
+        )

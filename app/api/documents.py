@@ -1,5 +1,5 @@
-from tempfile import NamedTemporaryFile
 from pathlib import Path
+from tempfile import NamedTemporaryFile
 
 from fastapi import (
     APIRouter,
@@ -11,6 +11,7 @@ from fastapi import (
     status,
 )
 
+from app.core.config import settings
 from app.core.dependencies import get_document_service
 from app.services.document_service import DocumentService
 
@@ -19,49 +20,89 @@ router = APIRouter(
     tags=["Documents"],
 )
 
+UPLOAD_BUFFER_SIZE = 1024 * 1024
+
 
 @router.get("/")
 async def get_documents(
     service: DocumentService = Depends(get_document_service),
 ):
-    """
-    Return all uploaded documents.
-    """
-    try:
-        return service.get_documents()
-    except Exception as exc:
-        raise HTTPException(
-            status_code=500,
-            detail=str(exc),
-        )
+    """Return all uploaded documents."""
+
+    return service.get_documents()
 
 
-@router.post("/upload")
+@router.post("/upload", status_code=status.HTTP_202_ACCEPTED)
 async def upload_document(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     service: DocumentService = Depends(get_document_service),
 ):
     """
-    Save the uploaded file first, then process it in the background.
+    Stream the upload to a temporary file, then process it in the background.
     """
 
-    suffix = Path(file.filename).suffix
+    filename = file.filename or "document.pdf"
+    content_type = file.content_type or ""
 
-    with NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
-        tmp.write(await file.read())
-        temp_path = tmp.name
+    if content_type != "application/pdf":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Only PDF files are allowed.",
+        )
+
+    suffix = Path(filename).suffix.lower()
+
+    if suffix != ".pdf":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="The uploaded file must have a .pdf extension.",
+        )
+
+    temp_path: str | None = None
+    total_bytes = 0
+
+    try:
+        with NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
+            temp_path = tmp.name
+
+            while True:
+                chunk = await file.read(UPLOAD_BUFFER_SIZE)
+
+                if not chunk:
+                    break
+
+                total_bytes += len(chunk)
+
+                if total_bytes > settings.max_upload_size:
+                    raise HTTPException(
+                        status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                        detail=(
+                            "File is too large. Maximum size is "
+                            f"{settings.max_upload_size // (1024 * 1024)} MB."
+                        ),
+                    )
+
+                tmp.write(chunk)
+
+    except Exception:
+        if temp_path:
+            Path(temp_path).unlink(missing_ok=True)
+        raise
+    finally:
+        await file.close()
 
     background_tasks.add_task(
         service.upload_document,
         temp_path,
-        file.filename,
-        file.content_type,
+        filename,
+        content_type,
     )
 
     return {
-        "message": "Upload started.",
+        "message": "Upload accepted and processing started.",
         "status": "processing",
+        "filename": filename,
     }
 
 
@@ -73,9 +114,7 @@ async def delete_document(
     document_id: int,
     service: DocumentService = Depends(get_document_service),
 ):
-    """
-    Delete a document and all of its chunks.
-    """
+    """Delete a document and all of its chunks."""
 
     deleted = service.delete_document(document_id)
 

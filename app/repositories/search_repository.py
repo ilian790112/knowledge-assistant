@@ -2,32 +2,25 @@ from sqlalchemy import func
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
 from app.core.logger import logger
 from app.models.document import Document
 from app.models.document_chunk import DocumentChunk
 from app.schemas.retrieved_chunk import RetrievedChunk
 
-RRF_K = 60
-MIN_SIMILARITY = 0.20
-
 
 class SearchRepository:
-    """
-    Performs semantic and keyword search against stored document chunks.
-    """
+    """Performs semantic and keyword search over stored document chunks."""
 
-    def __init__(self, db: Session):
+    def __init__(self, db: Session) -> None:
         self.db = db
 
     def semantic_search(
         self,
         query_embedding: list[float],
-        limit: int = 5,
+        limit: int,
     ) -> list[RetrievedChunk]:
-
-        distance = DocumentChunk.embedding.cosine_distance(
-            query_embedding
-        )
+        distance = DocumentChunk.embedding.cosine_distance(query_embedding)
 
         stmt = (
             select(
@@ -38,21 +31,13 @@ class SearchRepository:
                 Document.filename,
                 distance.label("distance"),
             )
-            .join(
-                Document,
-                Document.id == DocumentChunk.document_id,
-            )
+            .join(Document, Document.id == DocumentChunk.document_id)
+            .where(Document.status == "processed")
             .order_by(distance)
             .limit(limit)
         )
 
         rows = self.db.execute(stmt).all()
-
-        logger.info(
-            "Semantic search returned %d chunks",
-            len(rows),
-        )
-
         results: list[RetrievedChunk] = []
 
         for (
@@ -61,19 +46,11 @@ class SearchRepository:
             chunk_index,
             content,
             filename,
-            distance,
+            distance_value,
         ) in rows:
+            similarity = float(1 - distance_value)
 
-            similarity = float(1 - distance)
-
-            logger.info(
-                "%s | chunk=%d | similarity=%.4f",
-                filename,
-                chunk_index,
-                similarity,
-            )
-
-            if similarity < MIN_SIMILARITY:
+            if similarity < settings.semantic_similarity_threshold:
                 continue
 
             results.append(
@@ -87,23 +64,21 @@ class SearchRepository:
                 )
             )
 
+        logger.info(
+            "Semantic search returned %d/%d candidates",
+            len(results),
+            len(rows),
+        )
+
         return results
 
     def keyword_search(
         self,
         question: str,
-        limit: int = 5,
+        limit: int,
     ) -> list[RetrievedChunk]:
-
-        ts_query = func.plainto_tsquery(
-            "english",
-            question,
-        )
-
-        rank = func.ts_rank_cd(
-            DocumentChunk.search_vector,
-            ts_query,
-        )
+        ts_query = func.plainto_tsquery("english", question)
+        rank = func.ts_rank_cd(DocumentChunk.search_vector, ts_query)
 
         stmt = (
             select(
@@ -114,12 +89,10 @@ class SearchRepository:
                 Document.filename,
                 rank.label("rank"),
             )
-            .join(
-                Document,
-                Document.id == DocumentChunk.document_id,
-            )
+            .join(Document, Document.id == DocumentChunk.document_id)
             .where(
-                DocumentChunk.search_vector.op("@@")(ts_query)
+                Document.status == "processed",
+                DocumentChunk.search_vector.op("@@")(ts_query),
             )
             .order_by(rank.desc())
             .limit(limit)
@@ -134,7 +107,7 @@ class SearchRepository:
                 filename=filename,
                 chunk_index=chunk_index,
                 content=content,
-                score=float(rank),
+                score=float(rank_value),
             )
             for (
                 chunk_id,
@@ -142,7 +115,7 @@ class SearchRepository:
                 chunk_index,
                 content,
                 filename,
-                rank,
+                rank_value,
             ) in rows
         ]
 
@@ -150,42 +123,42 @@ class SearchRepository:
         self,
         query_embedding: list[float],
         question: str,
-        limit: int = 5,
+        limit: int,
     ) -> list[RetrievedChunk]:
+        candidate_limit = max(limit, settings.semantic_candidate_limit)
 
         semantic = self.semantic_search(
-            query_embedding,
-            limit * 2,
+            query_embedding=query_embedding,
+            limit=candidate_limit,
         )
-
         keyword = self.keyword_search(
-            question,
-            limit * 2,
+            question=question,
+            limit=candidate_limit,
         )
 
         scores: dict[int, float] = {}
         chunks: dict[int, RetrievedChunk] = {}
 
         for rank, chunk in enumerate(semantic, start=1):
-            score = 1 / (RRF_K + rank)
+            score = 1 / (settings.rrf_k + rank)
             scores[chunk.chunk_id] = score
-            chunk.score = score
             chunks[chunk.chunk_id] = chunk
+            chunk.score = score
 
         for rank, chunk in enumerate(keyword, start=1):
-            score = 1 / (RRF_K + rank)
+            score = 1 / (settings.rrf_k + rank)
 
             if chunk.chunk_id in scores:
                 scores[chunk.chunk_id] += score
                 chunks[chunk.chunk_id].score = scores[chunk.chunk_id]
             else:
                 scores[chunk.chunk_id] = score
-                chunk.score = score
                 chunks[chunk.chunk_id] = chunk
+                chunk.score = score
 
         return sorted(
             chunks.values(),
-            key=lambda c: c.score,
+            key=lambda item: item.score,
             reverse=True,
         )[:limit]
 
@@ -193,9 +166,8 @@ class SearchRepository:
         self,
         query_embedding: list[float],
         question: str,
-        limit: int = 5,
+        limit: int,
     ) -> list[RetrievedChunk]:
-
         return self.hybrid_search(
             query_embedding=query_embedding,
             question=question,
