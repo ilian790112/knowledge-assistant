@@ -7,8 +7,8 @@ on:
     branches: [main]
 
 jobs:
-  backend-syntax:
-    name: Backend syntax
+  backend:
+    name: Backend checks
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -16,7 +16,9 @@ jobs:
         with:
           python-version: "3.13"
       - name: Compile Python sources
-        run: python -m compileall -q app
+        run: python -m compileall -q app tests
+      - name: Run lightweight unit tests
+        run: python -m unittest discover -s tests -p "test_*.py"
 
   frontend:
     name: Frontend build

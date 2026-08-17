@@ -5,7 +5,18 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     """Application configuration loaded from environment variables."""
 
-    app_name: str = "AI Knowledge Assistant"
+    app_name: str = Field(
+        default="AI Knowledge Assistant",
+        alias="APP_NAME",
+    )
+    app_url: str = Field(
+        default="http://localhost:8000",
+        alias="APP_URL",
+    )
+    cors_origins: str = Field(
+        default="http://localhost:5173",
+        alias="CORS_ORIGINS",
+    )
 
     upload_folder: str = Field(
         default="uploads",

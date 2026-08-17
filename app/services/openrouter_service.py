@@ -7,20 +7,16 @@ from app.core.logger import logger
 
 
 class OpenRouterService:
-    """
-    Client for the OpenRouter Chat Completions API.
-    """
+    """Client for the OpenRouter Chat Completions API."""
 
     def generate(
         self,
         prompt: str,
     ) -> str:
         headers = {
-            "Authorization": (
-                f"Bearer {settings.openrouter_api_key}"
-            ),
+            "Authorization": f"Bearer {settings.openrouter_api_key}",
             "Content-Type": "application/json",
-            "HTTP-Referer": "http://localhost",
+            "HTTP-Referer": settings.app_url,
             "X-Title": settings.app_name,
         }
 
@@ -56,57 +52,38 @@ class OpenRouterService:
                 timeout=120,
             )
         except requests.RequestException as exc:
-            logger.exception(
-                "Unable to connect to OpenRouter."
-            )
+            logger.exception("Unable to connect to OpenRouter")
             raise RuntimeError(
                 "Unable to connect to OpenRouter."
             ) from exc
 
-        logger.info(
-            "OpenRouter HTTP %s",
-            response.status_code,
-        )
+        logger.info("OpenRouter HTTP %s", response.status_code)
 
         try:
             data = response.json()
-        except Exception as exc:
-            logger.error(response.text)
+        except ValueError as exc:
             raise RuntimeError(
                 "OpenRouter returned an invalid JSON response."
             ) from exc
 
         if not response.ok:
-            logger.error(data)
-
             error = (
                 data.get("error", {}).get("message")
                 if isinstance(data, dict)
                 else response.text
             )
+            raise RuntimeError(f"OpenRouter error: {error}")
 
-            raise RuntimeError(
-                f"OpenRouter error: {error}"
-            )
-
-        choices = data.get("choices")
+        choices = data.get("choices") if isinstance(data, dict) else None
 
         if not choices:
-            logger.error(data)
-
             raise RuntimeError(
                 "OpenRouter response does not contain choices."
             )
 
-        message = choices[0].get("message", {})
-
-        content = message.get("content")
+        content = choices[0].get("message", {}).get("content")
 
         if not content:
-            logger.error(data)
-
-            raise RuntimeError(
-                "OpenRouter returned an empty response."
-            )
+            raise RuntimeError("OpenRouter returned an empty response.")
 
         return content.strip()
