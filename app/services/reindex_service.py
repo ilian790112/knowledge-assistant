@@ -3,36 +3,45 @@ from app.services.embedding_service import EmbeddingService
 
 
 class ReindexService:
-    """
-    Regenerates embeddings for document chunks that don't have one.
-    """
+    """Regenerates embeddings for chunks that do not have one."""
 
     def __init__(
         self,
         chunk_repository: DocumentChunkRepository,
         embedding_service: EmbeddingService,
+        batch_size: int = 8,
     ) -> None:
+        if batch_size <= 0:
+            raise ValueError("batch_size must be greater than 0.")
+
         self.chunk_repository = chunk_repository
         self.embedding_service = embedding_service
+        self.batch_size = batch_size
 
     def reindex_embeddings(self) -> int:
-        """
-        Generate embeddings for all chunks with NULL embeddings.
+        """Regenerate missing embeddings in bounded batches."""
 
-        Returns:
-            Number of updated chunks.
-        """
+        updated = 0
 
-        chunks = self.chunk_repository.get_chunks_without_embeddings()
-
-        if not chunks:
-            return 0
-
-        for chunk in chunks:
-            chunk.embedding = self.embedding_service.generate_embedding(
-                chunk.content
+        while True:
+            chunks = self.chunk_repository.get_chunks_without_embeddings(
+                limit=self.batch_size,
             )
 
-        self.chunk_repository.commit()
+            if not chunks:
+                return updated
 
-        return len(chunks)
+            embeddings = self.embedding_service.generate_embeddings(
+                [chunk.content for chunk in chunks]
+            )
+
+            if len(embeddings) != len(chunks):
+                raise RuntimeError(
+                    "Embedding service returned a different number of embeddings."
+                )
+
+            for chunk, embedding in zip(chunks, embeddings, strict=True):
+                chunk.embedding = embedding
+
+            self.chunk_repository.commit()
+            updated += len(chunks)

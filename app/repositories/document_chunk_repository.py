@@ -58,11 +58,20 @@ class DocumentChunkRepository:
         )
         return list(self.db.scalars(statement).all())
 
-    def get_chunks_without_embeddings(self) -> list[DocumentChunk]:
-        """Return chunks missing embeddings."""
+    def get_chunks_without_embeddings(
+        self,
+        limit: int = 32,
+    ) -> list[DocumentChunk]:
+        """Return a bounded batch of chunks missing embeddings."""
 
-        statement = select(DocumentChunk).where(
-            DocumentChunk.embedding.is_(None)
+        if limit <= 0:
+            raise ValueError("limit must be greater than 0.")
+
+        statement = (
+            select(DocumentChunk)
+            .where(DocumentChunk.embedding.is_(None))
+            .order_by(DocumentChunk.id)
+            .limit(limit)
         )
         return list(self.db.scalars(statement).all())
 
