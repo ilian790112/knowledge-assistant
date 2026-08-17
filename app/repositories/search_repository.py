@@ -32,7 +32,10 @@ class SearchRepository:
                 distance.label("distance"),
             )
             .join(Document, Document.id == DocumentChunk.document_id)
-            .where(Document.status == "processed")
+            .where(
+                Document.status == "processed",
+                DocumentChunk.embedding.is_not(None),
+            )
             .order_by(distance)
             .limit(limit)
         )

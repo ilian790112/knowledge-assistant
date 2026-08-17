@@ -1,6 +1,6 @@
 from pathlib import Path
-from uuid import uuid4
 import shutil
+from uuid import uuid4
 
 from app.core.config import settings
 
@@ -24,6 +24,7 @@ class LocalStorage:
         self.upload_dir.mkdir(parents=True, exist_ok=True)
 
         safe_name = Path(filename).name or "document.pdf"
+        safe_name = safe_name[:180]
         destination = self.upload_dir / f"{uuid4().hex}_{safe_name}"
 
         shutil.move(temp_path, destination)

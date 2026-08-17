@@ -14,7 +14,10 @@ class Settings(BaseSettings):
         alias="APP_URL",
     )
     cors_origins: str = Field(
-        default="http://localhost:5173",
+        default=(
+            "http://localhost:5173,"
+            "https://knowlegde-asistant-bot.up.railway.app"
+        ),
         alias="CORS_ORIGINS",
     )
 
