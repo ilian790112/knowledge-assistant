@@ -1,10 +1,15 @@
+from __future__ import annotations
+
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from fastapi import HTTPException
 
 from app.core.logger import logger
-from app.processors.document_processor import DocumentProcessor
 from app.schemas.processing import ProcessingResult
+
+if TYPE_CHECKING:
+    from app.processors.document_processor import DocumentProcessor
 
 
 class DocumentService:
