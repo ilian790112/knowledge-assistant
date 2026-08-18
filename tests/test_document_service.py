@@ -8,18 +8,18 @@ from unittest.mock import MagicMock
 from fastapi import HTTPException
 
 
-# The document service imports the embedding service through the processor
-# dependency graph. Keep this unit test independent from the heavyweight
-# sentence-transformers package; embedding_service tests cover its behavior
-# separately with mocks.
-if "sentence_transformers" not in sys.modules:
-    sentence_transformers_stub = ModuleType("sentence_transformers")
+# DocumentService imports DocumentProcessor only for its type annotation.
+# Replace that module during this unit test so document-service tests stay
+# independent from optional/heavy infrastructure such as pgvector,
+# SQLAlchemy models, and sentence-transformers.
+if "app.processors.document_processor" not in sys.modules:
+    document_processor_stub = ModuleType("app.processors.document_processor")
 
-    class SentenceTransformer:  # noqa: D101
+    class DocumentProcessor:  # noqa: D101
         pass
 
-    sentence_transformers_stub.SentenceTransformer = SentenceTransformer
-    sys.modules["sentence_transformers"] = sentence_transformers_stub
+    document_processor_stub.DocumentProcessor = DocumentProcessor
+    sys.modules["app.processors.document_processor"] = document_processor_stub
 
 
 from app.services.document_service import DocumentService
