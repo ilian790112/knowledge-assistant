@@ -57,10 +57,12 @@ class PromptServiceTests(unittest.TestCase):
             history=history,
         )
 
-        self.assertNotIn("message-0", prompt)
-        self.assertNotIn("message-1", prompt)
-        self.assertIn("message-2", prompt)
-        self.assertIn("message-11", prompt)
+        conversation = prompt.split("========================\nDOCUMENT CONTEXT", 1)[0]
+
+        self.assertNotIn("User: message-0\n", conversation)
+        self.assertNotIn("User: message-1\n", conversation)
+        self.assertIn("User: message-2\n", conversation)
+        self.assertIn("User: message-11\n", conversation)
 
 
 if __name__ == "__main__":
