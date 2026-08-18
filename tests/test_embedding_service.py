@@ -1,5 +1,14 @@
+import sys
+import types
 import unittest
 from unittest.mock import MagicMock, patch
+
+
+# The embedding model is an optional runtime dependency for these unit tests.
+# Stub the module so importing EmbeddingService does not download/load PyTorch.
+_sentence_transformers = types.ModuleType("sentence_transformers")
+_sentence_transformers.SentenceTransformer = object
+sys.modules.setdefault("sentence_transformers", _sentence_transformers)
 
 from app.services.embedding_service import EmbeddingService
 
