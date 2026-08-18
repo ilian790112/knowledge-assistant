@@ -5,3 +5,4 @@ pydantic-settings==2.11.0
 requests==2.32.5
 SQLAlchemy==2.0.51
 pgvector==0.4.1
+psycopg2-binary==2.9.11
