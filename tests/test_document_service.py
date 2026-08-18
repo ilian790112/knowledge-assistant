@@ -1,9 +1,26 @@
+import sys
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from types import ModuleType
+from unittest.mock import MagicMock
 
 from fastapi import HTTPException
+
+
+# The document service imports the embedding service through the processor
+# dependency graph. Keep this unit test independent from the heavyweight
+# sentence-transformers package; embedding_service tests cover its behavior
+# separately with mocks.
+if "sentence_transformers" not in sys.modules:
+    sentence_transformers_stub = ModuleType("sentence_transformers")
+
+    class SentenceTransformer:  # noqa: D101
+        pass
+
+    sentence_transformers_stub.SentenceTransformer = SentenceTransformer
+    sys.modules["sentence_transformers"] = sentence_transformers_stub
+
 
 from app.services.document_service import DocumentService
 
